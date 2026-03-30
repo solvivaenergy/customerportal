@@ -242,9 +242,9 @@ export const fetchLifetimeSavingsPhp = async (): Promise<number> => {
 
     const { data, error } = await supabase
       .from("energy_readings_five_minutes")
-      .select("*")
+      .select("lifetime_earning,lifetime_earnings,lifetime_earnings_php,lifetime_earning_php,lifetime_savings_php,total_savings_php")
       .eq("user_id", user.id)
-      .order("timestamp", { ascending: false })
+      .order("lifetime_earning", { ascending: false })
       .limit(1)
       .maybeSingle();
 
