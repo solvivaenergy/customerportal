@@ -27,7 +27,11 @@
       "enabled": false
     },
     "web": {
+      "output": "single",
       "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "baseUrl": "/customerportal"
     },
     "extra": {
       "SUPABASE_URL": "https://kzsocvzhbgtfyksrjmvk.supabase.co",
