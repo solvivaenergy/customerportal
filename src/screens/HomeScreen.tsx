@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Dimensions,
   ActivityIndicator,
   RefreshControl,
   Platform,
@@ -22,12 +23,9 @@ import {
   formatDate,
   isPastDateInGmt8,
 } from "../services/dataService";
-import { fetchHomeLiveData } from "../services/apiService";
-<<<<<<< HEAD
-=======
+import { fetchLiveData, fetchLifetimeSavingsPhp } from "../services/apiService";
 
 const { width } = Dimensions.get("window");
->>>>>>> cf414b9 (Load solar earnings with initial home data)
 
 export default function HomeScreen({ navigation }: any) {
   const { width } = useWindowDimensions();
@@ -49,21 +47,26 @@ export default function HomeScreen({ navigation }: any) {
 
   const loadData = useCallback(async () => {
     try {
-<<<<<<< HEAD
-      const [profile, weeklyData, payment, billing, referrals, tips] =
-=======
-      // Load fast Supabase data first so the UI renders quickly
-      const [profile, weeklyData, payment, billing, referrals, tips, liveData] =
->>>>>>> cf414b9 (Load solar earnings with initial home data)
-        await Promise.all([
-          fetchUserProfile(),
-          fetchWeeklyReadings(),
-          fetchUpcomingPayment(),
-          fetchBillingRecords(),
-          fetchReferrals(),
-          fetchEnergyTips(),
-          fetchHomeLiveData(),
-        ]);
+      // Load Supabase data in one batch so earnings arrive with the rest
+      const [
+        profile,
+        weeklyData,
+        payment,
+        billing,
+        referrals,
+        tips,
+        liveData,
+        lifetimeSavings,
+      ] = await Promise.all([
+        fetchUserProfile(),
+        fetchWeeklyReadings(),
+        fetchUpcomingPayment(),
+        fetchBillingRecords(),
+        fetchReferrals(),
+        fetchEnergyTips(),
+        fetchLiveData(),
+        fetchLifetimeSavingsPhp(),
+      ]);
 
       if (profile) setUserName(profile.full_name);
 
@@ -117,13 +120,6 @@ export default function HomeScreen({ navigation }: any) {
         setEnergyTip(unread || tips[0]);
       }
 
-<<<<<<< HEAD
-      setLoading(false);
-      setRefreshing(false);
-
-      const liveData = await fetchHomeLiveData();
-=======
->>>>>>> cf414b9 (Load solar earnings with initial home data)
       if (liveData) {
         setBatteryLevel(liveData.battery_level ?? 0);
         setBatteryStatus(liveData.battery_status || "idle");
