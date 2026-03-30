@@ -170,7 +170,8 @@ export default function EnergyScreen() {
   const selfConsumptionRate =
     totalConsumption > 0
       ? Math.round(
-          (Math.min(totalProduction, totalConsumption) / totalConsumption) * 100,
+          (Math.min(totalProduction, totalConsumption) / totalConsumption) *
+            100,
         )
       : 0;
   const totalGridExport = (() => {
@@ -284,7 +285,10 @@ export default function EnergyScreen() {
                         style={[
                           styles.barConsumption,
                           {
-                            height: Math.max(2, chartConsumption[index] * scale),
+                            height: Math.max(
+                              2,
+                              chartConsumption[index] * scale,
+                            ),
                           },
                         ]}
                       />
@@ -330,7 +334,7 @@ export default function EnergyScreen() {
             <Text style={styles.summaryLabel}>Total Production</Text>
           </View>
           {hasConsumption && (
-            <View style={[styles.summaryCard, { backgroundColor: "#FFF3E0" }]}>
+            <View style={[styles.summaryCard, { backgroundColor: "#FFF3E0" }]}> 
               <Text style={styles.summaryIcon}>⚡</Text>
               <Text style={styles.summaryValue}>
                 {totalConsumption.toFixed(1)} kWh
@@ -344,7 +348,7 @@ export default function EnergyScreen() {
             <Text style={styles.summaryLabel}>Total Savings</Text>
           </View>
           {hasConsumption && (
-            <View style={[styles.summaryCard, { backgroundColor: "#E3F2FD" }]}>
+            <View style={[styles.summaryCard, { backgroundColor: "#E3F2FD" }]}> 
               <Text style={styles.summaryIcon}>📊</Text>
               <Text style={styles.summaryValue}>{selfConsumptionRate}%</Text>
               <Text style={styles.summaryLabel}>Self-Consumption</Text>
@@ -377,17 +381,17 @@ export default function EnergyScreen() {
                     <Text style={styles.readingTime}>{time}</Text>
                     <View style={styles.readingValues}>
                       <Text style={styles.readingProduction}>
-                        â˜€ï¸ {reading.production} {reading.production_unit}
+                        ☀️ {reading.production} {reading.production_unit}
                       </Text>
                       {showConsumption && (
                         <Text style={styles.readingConsumption}>
-                          âš¡ {reading.consumption} {reading.consumption_unit}
+                          ⚡ {reading.consumption} {reading.consumption_unit}
                         </Text>
                       )}
                     </View>
                     {hasBattery && (
                       <Text style={styles.readingBattery}>
-                        ðŸ”‹ {reading.battery_level}%
+                        🔋 {reading.battery_level}%
                       </Text>
                     )}
                   </View>
@@ -395,70 +399,6 @@ export default function EnergyScreen() {
               })}
             </ScrollView>
           </View>
-        )}
-
-        {timeRange !== "today" &&
-          (() => {
-            const data = timeRange === "7days" ? weeklyData : monthlyData;
-            const dailyMap = new Map<string, { prod: number; cons: number }>();
-            chartLabels.forEach((label) => {
-              dailyMap.set(label, { prod: 0, cons: 0 });
-            });
-            if (timeRange === "7days") {
-              data.forEach((r: any) => {
-                const daysAgo = getDaysAgoInGmt8(r.timestamp);
-                const idx = 7 - daysAgo;
-                if (idx >= 0 && idx < 7) {
-                  const label = chartLabels[idx];
-                  const entry = dailyMap.get(label)!;
-                  entry.prod += Number(r.production_kwh);
-                  entry.cons += Number(r.consumption_kwh);
-                }
-              });
-            } else {
-              const { mondayEpochs } = getFourWeekMondays();
-              const WEEK_MS = 7 * 86400000;
-              data.forEach((r: any) => {
-                const rTime = new Date(r.timestamp).getTime();
-                for (let i = 0; i < 4; i++) {
-                  if (
-                    rTime >= mondayEpochs[i] &&
-                    rTime < mondayEpochs[i] + WEEK_MS
-                  ) {
-                    const label = chartLabels[i];
-                    if (label) {
-                      const entry = dailyMap.get(label)!;
-                      entry.prod += Number(r.production_kwh);
-                      entry.cons += Number(r.consumption_kwh);
-                    }
-                    break;
-                  }
-                }
-              });
-            }
-            const entries = Array.from(dailyMap.entries());
-            return (
-              <View style={styles.readingsContainer}>
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
-                  {entries.map(([label, vals]) => (
-                    <View key={label} style={styles.readingRow}>
-                      <Text style={styles.readingTime}>{label}</Text>
-                      <View style={styles.readingValues}>
-                        <Text style={styles.readingProduction}>
-                          â˜€ï¸ {vals.prod.toFixed(1)} kWh
-                        </Text>
-                        {hasConsumption && (
-                          <Text style={styles.readingConsumption}>
-                            âš¡ {vals.cons.toFixed(1)} kWh
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            );
-          })()}
       </View>
 
       <View style={styles.section}>
@@ -466,7 +406,7 @@ export default function EnergyScreen() {
         <View style={styles.financeCard}>
           <View style={styles.financeRow}>
             <Text style={styles.financeLabel}>Electricity Rate</Text>
-            <Text style={styles.financeValue}>â‚±{PESO_PER_KWH}/kWh</Text>
+            <Text style={styles.financeValue}>₱{PESO_PER_KWH}/kWh</Text>
           </View>
           <View style={styles.financeRow}>
             <Text style={styles.financeLabel}>
@@ -502,12 +442,14 @@ export default function EnergyScreen() {
         <View style={styles.systemCard}>
           <View style={styles.systemRow}>
             <Text style={styles.systemLabel}>System</Text>
-            <Text style={styles.systemValue}>{system?.system_name ?? "â€”"}</Text>
+            <Text style={styles.systemValue}>
+              {system?.system_name ?? "—"}
+            </Text>
           </View>
           <View style={styles.systemRow}>
             <Text style={styles.systemLabel}>Capacity</Text>
             <Text style={styles.systemValue}>
-              {system?.capacity_kwp ?? "â€”"} kWp
+              {system?.capacity_kwp ?? "—"} kWp
             </Text>
           </View>
           {system?.battery_capacity_kwh != null &&
@@ -522,13 +464,13 @@ export default function EnergyScreen() {
           <View style={styles.systemRow}>
             <Text style={styles.systemLabel}>Installed</Text>
             <Text style={styles.systemValue}>
-              {system?.installation_date ?? "â€”"}
+              {system?.installation_date ?? "—"}
             </Text>
           </View>
           <View style={styles.systemRow}>
             <Text style={styles.systemLabel}>Status</Text>
-            <Text style={[styles.systemValue, { color: Colors.success }]}>
-              â— Active
+            <Text style={[styles.systemValue, { color: Colors.success }]}> 
+              ● Active
             </Text>
           </View>
         </View>
