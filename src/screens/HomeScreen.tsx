@@ -222,19 +222,19 @@ export default function HomeScreen({ navigation }: any) {
         <Text style={styles.sectionTitle}>This Week</Text>
         <View style={[styles.weekCards, isWide && styles.weekCardsWide]}>
           <View style={[styles.statCard, { backgroundColor: "#E8F5E9" }]}>
-            <Text style={styles.statIcon}>â˜€ï¸</Text>
+            <Text style={styles.statIcon}>☀️</Text>
             <Text style={styles.statValue}>{weekProduction} kWh</Text>
             <Text style={styles.statLabel}>Production</Text>
           </View>
           {weekConsumption > 0 && (
             <View style={[styles.statCard, { backgroundColor: "#FFF3E0" }]}>
-              <Text style={styles.statIcon}>âš¡</Text>
+              <Text style={styles.statIcon}>⚡</Text>
               <Text style={styles.statValue}>{weekConsumption} kWh</Text>
               <Text style={styles.statLabel}>Consumption</Text>
             </View>
           )}
           <View style={[styles.statCard, { backgroundColor: "#E3F2FD" }]}>
-            <Text style={styles.statIcon}>ðŸ’°</Text>
+            <Text style={styles.statIcon}>💰</Text>
             <Text style={styles.statValue}>{formatPeso(weekSavings)}</Text>
             <Text style={styles.statLabel}>Savings</Text>
           </View>

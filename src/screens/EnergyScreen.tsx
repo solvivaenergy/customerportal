@@ -323,7 +323,7 @@ export default function EnergyScreen() {
       <View style={styles.section}>
         <View style={[styles.summaryGrid, isWide && styles.summaryGridWide]}>
           <View style={[styles.summaryCard, { backgroundColor: "#E8F5E9" }]}>
-            <Text style={styles.summaryIcon}>â˜€ï¸</Text>
+            <Text style={styles.summaryIcon}>☀️</Text>
             <Text style={styles.summaryValue}>
               {totalProduction.toFixed(1)} kWh
             </Text>
@@ -331,7 +331,7 @@ export default function EnergyScreen() {
           </View>
           {hasConsumption && (
             <View style={[styles.summaryCard, { backgroundColor: "#FFF3E0" }]}>
-              <Text style={styles.summaryIcon}>âš¡</Text>
+              <Text style={styles.summaryIcon}>⚡</Text>
               <Text style={styles.summaryValue}>
                 {totalConsumption.toFixed(1)} kWh
               </Text>
@@ -339,13 +339,13 @@ export default function EnergyScreen() {
             </View>
           )}
           <View style={[styles.summaryCard, { backgroundColor: "#E8F5E9" }]}>
-            <Text style={styles.summaryIcon}>ðŸ’°</Text>
+            <Text style={styles.summaryIcon}>💰</Text>
             <Text style={styles.summaryValue}>{formatPeso(totalSavings)}</Text>
             <Text style={styles.summaryLabel}>Total Savings</Text>
           </View>
           {hasConsumption && (
             <View style={[styles.summaryCard, { backgroundColor: "#E3F2FD" }]}>
-              <Text style={styles.summaryIcon}>ðŸ“Š</Text>
+              <Text style={styles.summaryIcon}>📊</Text>
               <Text style={styles.summaryValue}>{selfConsumptionRate}%</Text>
               <Text style={styles.summaryLabel}>Self-Consumption</Text>
             </View>

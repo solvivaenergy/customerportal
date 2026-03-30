@@ -127,7 +127,7 @@ export const fetchHomeLiveData = async (): Promise<HomeLiveData | null> => {
     const [latestResult, lifetimeResult] = await Promise.all([
       supabase
         .from("energy_readings_five_minutes")
-        .select("battery_level,battery_status,alltime_production_kwh,lifetime_production_kwh,total_production_kwh,total_yield_kwh,lifetime_earning,lifetime_savings_php,lifetime_earning_php,lifetime_earnings_php,lifetime_earnings,total_savings_php,capacity_kwp,station_name,plant_name,timestamp")
+        .select("battery_level,battery_status,battery_mode,alltime_production_kwh,lifetime_production_kwh,total_production_kwh,total_yield_kwh,lifetime_earning,lifetime_savings_php,lifetime_earning_php,lifetime_earnings_php,lifetime_earnings,total_savings_php,capacity_kwp,station_name,plant_name,timestamp")
         .eq("user_id", user.id)
         .order("timestamp", { ascending: false })
         .limit(1)
