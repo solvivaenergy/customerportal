@@ -48,7 +48,7 @@ export default function EnergyScreen() {
       setWeeklyData(weekly);
       setMonthlyData(monthly);
 
-      // Fetch live data for real-time Today chart and readings (Solis 5-min intervals)
+      // Fetch today's five-minute data and latest battery state from Supabase
       const live = await fetchLiveData();
       setLiveData(live);
     } catch (err) {
@@ -101,7 +101,7 @@ export default function EnergyScreen() {
 
   const getDisplayData = () => {
     if (timeRange === "today") {
-      // // Use live API's 2-hour buckets (labels are end-time: 7AM = 5-7AM data)
+      // Hour buckets are derived from today's five-minute rows in Supabase
       // if (liveData?.today_hourly && liveData.today_hourly.length > 0) {
       //   return {
       //     labels: liveData.today_hourly.map((b) => formatHour(b.hour)),
@@ -233,7 +233,7 @@ export default function EnergyScreen() {
   const hasGridExport = totalGridExport > 0;
   const showConsumption = hasConsumption || timeRange === "today";
 
-  // 5-min readings from live API for Today's Readings list
+  // 5-minute readings from Supabase for Today's Readings list
   const liveReadings = liveData?.today_readings ?? [];
 
   // Check if any reading has battery data
@@ -439,11 +439,11 @@ export default function EnergyScreen() {
                     <Text style={styles.readingTime}>{time}</Text>
                     <View style={styles.readingValues}>
                       <Text style={styles.readingProduction}>
-                        ☀️ {reading.production_kw} kW
+                        ☀️ {reading.production} {reading.production_unit}
                       </Text>
                       {showConsumption && (
                         <Text style={styles.readingConsumption}>
-                          ⚡ {reading.consumption_kw} kW
+                          ⚡ {reading.consumption} {reading.consumption_unit}
                         </Text>
                       )}
                     </View>
