@@ -19,7 +19,7 @@ import {
   getDaysAgoInGmt8,
   getFourWeekMondays,
 } from "../services/dataService";
-import { fetchLiveData, LiveData } from "../services/apiService";
+import { fetchTodayLiveData, LiveData } from "../services/apiService";
 
 const PESO_PER_KWH = 11.5;
 
@@ -39,17 +39,15 @@ export default function EnergyScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [sys, weekly, monthly] = await Promise.all([
+      const [sys, weekly, monthly, live] = await Promise.all([
         fetchSolarSystem(),
         fetchWeeklyReadings(),
         fetchMonthlyReadings(),
+        fetchTodayLiveData(),
       ]);
       setSystem(sys);
       setWeeklyData(weekly);
       setMonthlyData(monthly);
-
-      // Fetch today's five-minute data and latest battery state from Supabase
-      const live = await fetchLiveData();
       setLiveData(live);
     } catch (err) {
       console.log("EnergyScreen loadData error:", err);
@@ -74,47 +72,21 @@ export default function EnergyScreen() {
     return `${h12} ${suffix}`;
   };
 
-  // const formatReadingTime = (ts: string) => {
-  //   const d = new Date(ts);
-  //   const utcMs = d.getTime() + d.getTimezoneOffset() * 60 * 1000;
-  //   const gmt8 = new Date(utcMs + 8 * 60 * 60 * 1000);
-  //   const hour = gmt8.getUTCHours();
-  //   const min = gmt8.getUTCMinutes();
-  //   const suffix = hour >= 12 ? "PM" : "AM";
-  //   const h12 = hour % 12 || 12;
-  //   return `${h12}:${String(min).padStart(2, "0")} ${suffix}`;
-  // };
-
   const formatReadingTime = (ts: string) => {
     const d = new Date(ts);
-    // Directly add 8 hours to the absolute UTC epoch time
     const gmt8 = new Date(d.getTime() + 8 * 60 * 60 * 1000);
-
     const hour = gmt8.getUTCHours();
     const min = gmt8.getUTCMinutes();
     const suffix = hour >= 12 ? "PM" : "AM";
     const h12 = hour % 12 || 12;
-
     return `${h12}:${String(min).padStart(2, "0")} ${suffix}`;
   };
-  // ---- Compute chart data based on selected timeRange ----
 
   const getDisplayData = () => {
     if (timeRange === "today") {
-      // Hour buckets are derived from today's five-minute rows in Supabase
-      // if (liveData?.today_hourly && liveData.today_hourly.length > 0) {
-      //   return {
-      //     labels: liveData.today_hourly.map((b) => formatHour(b.hour)),
-      //     production: liveData.today_hourly.map((b) => b.production_kwh),
-      //     consumption: liveData.today_hourly.map((b) => b.consumption_kwh),
-      //   };
-      // }
       if (liveData?.today_hourly && liveData.today_hourly.length > 0) {
-        // Get current hour in GMT+8
         const now = new Date();
         const currentGmt8Hour = (now.getUTCHours() + 8) % 24;
-
-        // Filter out buckets whose end hour is greater than the current hour
         const completeBuckets = liveData.today_hourly.filter(
           (b) => b.hour <= currentGmt8Hour,
         );
@@ -158,41 +130,23 @@ export default function EnergyScreen() {
       return { labels, production: prod, consumption: cons };
     }
 
-    // Default: 7 complete days — yesterday back to 7 days ago
-    // const dayLabels: string[] = [];
-    // const prod: number[] = [];
-    // const cons: number[] = [];
-    // for (let i = 7; i >= 1; i--) {
-    //   const d = new Date(Date.now() - i * 86400000);
-    //   const utcMs = d.getTime() + d.getTimezoneOffset() * 60000;
-    //   const gmt8 = new Date(utcMs + 8 * 3600000);
-    //   const mm = String(gmt8.getUTCMonth() + 1).padStart(2, "0");
-    //   const dd = String(gmt8.getUTCDate()).padStart(2, "0");
-    //   dayLabels.push(`${mm}/${dd}`);
-    //   prod.push(0);
-    //   cons.push(0);
-    // }
-
-    // Default: 7 complete days — yesterday back to 7 days ago
     const dayLabels: string[] = [];
     const prod: number[] = [];
     const cons: number[] = [];
     for (let i = 7; i >= 1; i--) {
       const d = new Date(Date.now() - i * 86400000);
-
-      // Directly add 8 hours to the absolute UTC epoch time
       const gmt8 = new Date(d.getTime() + 8 * 3600000);
-
       const mm = String(gmt8.getUTCMonth() + 1).padStart(2, "0");
       const dd = String(gmt8.getUTCDate()).padStart(2, "0");
       dayLabels.push(`${mm}/${dd}`);
       prod.push(0);
       cons.push(0);
     }
+
     if (weeklyData.length > 0) {
       weeklyData.forEach((r: any) => {
         const daysAgo = getDaysAgoInGmt8(r.timestamp);
-        const idx = 7 - daysAgo; // 7 days ago → index 0, yesterday → index 6
+        const idx = 7 - daysAgo;
         if (idx >= 0 && idx < 7) {
           prod[idx] += Number(r.production_kwh);
           cons[idx] += Number(r.consumption_kwh);
@@ -216,8 +170,7 @@ export default function EnergyScreen() {
   const selfConsumptionRate =
     totalConsumption > 0
       ? Math.round(
-          (Math.min(totalProduction, totalConsumption) / totalConsumption) *
-            100,
+          (Math.min(totalProduction, totalConsumption) / totalConsumption) * 100,
         )
       : 0;
   const totalGridExport = (() => {
@@ -232,16 +185,10 @@ export default function EnergyScreen() {
   })();
   const hasGridExport = totalGridExport > 0;
   const showConsumption = hasConsumption || timeRange === "today";
-
-  // 5-minute readings from Supabase for Today's Readings list
   const liveReadings = liveData?.today_readings ?? [];
-
-  // Check if any reading has battery data
   const hasBattery = liveReadings.some(
     (r) => r.battery_level != null && r.battery_level > 0,
   );
-
-  // Determine period label for the finance section
   const periodLabel =
     timeRange === "today"
       ? "Today"
@@ -272,7 +219,6 @@ export default function EnergyScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      {/* Header */}
       <View style={[styles.header, isWeb && styles.webHeader]}>
         <Text style={styles.headerTitle}>Energy Overview</Text>
         <Text style={styles.headerSubtitle}>
@@ -280,7 +226,6 @@ export default function EnergyScreen() {
         </Text>
       </View>
 
-      {/* Time Range Selector */}
       <View style={styles.timeSelector}>
         {(
           [
@@ -309,7 +254,6 @@ export default function EnergyScreen() {
         ))}
       </View>
 
-      {/* Production vs Consumption Chart Placeholder */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
           {showConsumption ? "Production vs Consumption" : "Production"}
@@ -322,7 +266,7 @@ export default function EnergyScreen() {
                 ...(showConsumption ? chartConsumption : []),
                 1,
               );
-              const maxBarHeight = 100; // px budget for bars
+              const maxBarHeight = 100;
               const scale = maxBarHeight / maxVal;
               return chartLabels.map((label, index) => (
                 <View key={label} style={styles.barGroup}>
@@ -340,10 +284,7 @@ export default function EnergyScreen() {
                         style={[
                           styles.barConsumption,
                           {
-                            height: Math.max(
-                              2,
-                              chartConsumption[index] * scale,
-                            ),
+                            height: Math.max(2, chartConsumption[index] * scale),
                           },
                         ]}
                       />
@@ -379,11 +320,10 @@ export default function EnergyScreen() {
         </View>
       </View>
 
-      {/* Summary Cards */}
       <View style={styles.section}>
         <View style={[styles.summaryGrid, isWide && styles.summaryGridWide]}>
           <View style={[styles.summaryCard, { backgroundColor: "#E8F5E9" }]}>
-            <Text style={styles.summaryIcon}>☀️</Text>
+            <Text style={styles.summaryIcon}>â˜€ï¸</Text>
             <Text style={styles.summaryValue}>
               {totalProduction.toFixed(1)} kWh
             </Text>
@@ -391,7 +331,7 @@ export default function EnergyScreen() {
           </View>
           {hasConsumption && (
             <View style={[styles.summaryCard, { backgroundColor: "#FFF3E0" }]}>
-              <Text style={styles.summaryIcon}>⚡</Text>
+              <Text style={styles.summaryIcon}>âš¡</Text>
               <Text style={styles.summaryValue}>
                 {totalConsumption.toFixed(1)} kWh
               </Text>
@@ -399,13 +339,13 @@ export default function EnergyScreen() {
             </View>
           )}
           <View style={[styles.summaryCard, { backgroundColor: "#E8F5E9" }]}>
-            <Text style={styles.summaryIcon}>💰</Text>
+            <Text style={styles.summaryIcon}>ðŸ’°</Text>
             <Text style={styles.summaryValue}>{formatPeso(totalSavings)}</Text>
             <Text style={styles.summaryLabel}>Total Savings</Text>
           </View>
           {hasConsumption && (
             <View style={[styles.summaryCard, { backgroundColor: "#E3F2FD" }]}>
-              <Text style={styles.summaryIcon}>📊</Text>
+              <Text style={styles.summaryIcon}>ðŸ“Š</Text>
               <Text style={styles.summaryValue}>{selfConsumptionRate}%</Text>
               <Text style={styles.summaryLabel}>Self-Consumption</Text>
             </View>
@@ -413,7 +353,6 @@ export default function EnergyScreen() {
         </View>
       </View>
 
-      {/* Readings Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
           {timeRange === "today"
@@ -423,7 +362,6 @@ export default function EnergyScreen() {
               : "Daily Readings"}
         </Text>
 
-        {/* Today tab: 5-min live readings */}
         {timeRange === "today" && liveReadings.length === 0 && (
           <Text style={{ color: Colors.textSecondary, fontSize: FontSizes.md }}>
             No readings yet today.
@@ -439,17 +377,17 @@ export default function EnergyScreen() {
                     <Text style={styles.readingTime}>{time}</Text>
                     <View style={styles.readingValues}>
                       <Text style={styles.readingProduction}>
-                        ☀️ {reading.production} {reading.production_unit}
+                        â˜€ï¸ {reading.production} {reading.production_unit}
                       </Text>
                       {showConsumption && (
                         <Text style={styles.readingConsumption}>
-                          ⚡ {reading.consumption} {reading.consumption_unit}
+                          âš¡ {reading.consumption} {reading.consumption_unit}
                         </Text>
                       )}
                     </View>
                     {hasBattery && (
                       <Text style={styles.readingBattery}>
-                        🔋 {reading.battery_level}%
+                        ðŸ”‹ {reading.battery_level}%
                       </Text>
                     )}
                   </View>
@@ -459,13 +397,10 @@ export default function EnergyScreen() {
           </View>
         )}
 
-        {/* 7 Days / 4 Weeks tab: daily summary readings */}
         {timeRange !== "today" &&
           (() => {
             const data = timeRange === "7days" ? weeklyData : monthlyData;
-            // Group by date label
             const dailyMap = new Map<string, { prod: number; cons: number }>();
-            // Initialize with chart labels so order is preserved
             chartLabels.forEach((label) => {
               dailyMap.set(label, { prod: 0, cons: 0 });
             });
@@ -481,7 +416,6 @@ export default function EnergyScreen() {
                 }
               });
             } else {
-              // 4 weeks — group by ISO week (Monday date labels)
               const { mondayEpochs } = getFourWeekMondays();
               const WEEK_MS = 7 * 86400000;
               data.forEach((r: any) => {
@@ -511,11 +445,11 @@ export default function EnergyScreen() {
                       <Text style={styles.readingTime}>{label}</Text>
                       <View style={styles.readingValues}>
                         <Text style={styles.readingProduction}>
-                          ☀️ {vals.prod.toFixed(1)} kWh
+                          â˜€ï¸ {vals.prod.toFixed(1)} kWh
                         </Text>
                         {hasConsumption && (
                           <Text style={styles.readingConsumption}>
-                            ⚡ {vals.cons.toFixed(1)} kWh
+                            âš¡ {vals.cons.toFixed(1)} kWh
                           </Text>
                         )}
                       </View>
@@ -527,13 +461,12 @@ export default function EnergyScreen() {
           })()}
       </View>
 
-      {/* Financial Tracking */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Peso Savings Calculator</Text>
         <View style={styles.financeCard}>
           <View style={styles.financeRow}>
             <Text style={styles.financeLabel}>Electricity Rate</Text>
-            <Text style={styles.financeValue}>₱{PESO_PER_KWH}/kWh</Text>
+            <Text style={styles.financeValue}>â‚±{PESO_PER_KWH}/kWh</Text>
           </View>
           <View style={styles.financeRow}>
             <Text style={styles.financeLabel}>
@@ -564,18 +497,17 @@ export default function EnergyScreen() {
         </View>
       </View>
 
-      {/* System Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>System Details</Text>
         <View style={styles.systemCard}>
           <View style={styles.systemRow}>
             <Text style={styles.systemLabel}>System</Text>
-            <Text style={styles.systemValue}>{system?.system_name ?? "—"}</Text>
+            <Text style={styles.systemValue}>{system?.system_name ?? "â€”"}</Text>
           </View>
           <View style={styles.systemRow}>
             <Text style={styles.systemLabel}>Capacity</Text>
             <Text style={styles.systemValue}>
-              {system?.capacity_kwp ?? "—"} kWp
+              {system?.capacity_kwp ?? "â€”"} kWp
             </Text>
           </View>
           {system?.battery_capacity_kwh != null &&
@@ -590,13 +522,13 @@ export default function EnergyScreen() {
           <View style={styles.systemRow}>
             <Text style={styles.systemLabel}>Installed</Text>
             <Text style={styles.systemValue}>
-              {system?.installation_date ?? "—"}
+              {system?.installation_date ?? "â€”"}
             </Text>
           </View>
           <View style={styles.systemRow}>
             <Text style={styles.systemLabel}>Status</Text>
             <Text style={[styles.systemValue, { color: Colors.success }]}>
-              ● Active
+              â— Active
             </Text>
           </View>
         </View>

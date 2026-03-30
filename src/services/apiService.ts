@@ -16,6 +16,7 @@ export type LiveData = {
   capacity_kwp: number;
   station_name: string;
   alltime_production_kwh: number;
+  lifetime_savings_php?: number;
   month_production_kwh: number;
   today_hourly?: { hour: number; production_kwh: number; consumption_kwh: number }[];
   today_readings?: {
@@ -27,6 +28,11 @@ export type LiveData = {
     battery_level: number | null;
   }[];
 };
+
+export type HomeLiveData = Pick<
+  LiveData,
+  "battery_level" | "battery_status" | "alltime_production_kwh" | "lifetime_savings_php"
+>;
 
 const getTodayStartIsoInGmt8 = () => {
   const now = new Date();
@@ -103,57 +109,106 @@ const getLifetimeSavingsFromLatest = (reading: FiveMinuteReading) =>
     reading.total_savings_php,
   );
 
-export const fetchLiveData = async (): Promise<LiveData | null> => {
+const getCurrentUser = async () => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+};
+
+export const fetchHomeLiveData = async (): Promise<HomeLiveData | null> => {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) {
-      console.log("fetchLiveData: no active user");
+      console.log("fetchHomeLiveData: no active user");
       return null;
     }
 
-    const todayStartIso = getTodayStartIsoInGmt8();
-
-    const [todayResult, latestResult, lifetimeFallbackResult] = await Promise.all([
+    const [latestResult, lifetimeResult] = await Promise.all([
       supabase
         .from("energy_readings_five_minutes")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("timestamp", todayStartIso)
-        .order("timestamp", { ascending: true }),
-      supabase
-        .from("energy_readings_five_minutes")
-        .select("*")
+        .select("battery_level,battery_status,alltime_production_kwh,lifetime_production_kwh,total_production_kwh,total_yield_kwh,lifetime_earning,lifetime_savings_php,lifetime_earning_php,lifetime_earnings_php,lifetime_earnings,total_savings_php,capacity_kwp,station_name,plant_name,timestamp")
         .eq("user_id", user.id)
         .order("timestamp", { ascending: false })
         .limit(1)
         .maybeSingle(),
       supabase
         .from("energy_readings_five_minutes")
-        .select("production_kwh")
-        .eq("user_id", user.id),
+        .select("lifetime_earning,lifetime_earnings,lifetime_earnings_php,lifetime_earning_php,lifetime_savings_php,total_savings_php")
+        .eq("user_id", user.id)
+        .order("lifetime_earning", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    if (latestResult.error) {
+      console.log("fetchHomeLiveData latest error:", latestResult.error.message);
+      return null;
+    }
+    if (lifetimeResult.error) {
+      console.log("fetchHomeLiveData lifetime error:", lifetimeResult.error.message);
+      return null;
+    }
+
+    const latestRow = latestResult.data;
+    const lifetimeRow = lifetimeResult.data;
+
+    return {
+      battery_level:
+        latestRow?.battery_level != null ? Number(latestRow.battery_level) : null,
+      battery_status: firstString(latestRow?.battery_status, latestRow?.battery_mode),
+      alltime_production_kwh: latestRow
+        ? getLifetimeProductionFromLatest(latestRow)
+        : 0,
+      lifetime_savings_php: lifetimeRow
+        ? getLifetimeSavingsFromLatest(lifetimeRow)
+        : latestRow
+          ? getLifetimeSavingsFromLatest(latestRow)
+          : 0,
+    };
+  } catch (error) {
+    console.log("fetchHomeLiveData error:", error);
+    return null;
+  }
+};
+
+export const fetchTodayLiveData = async (): Promise<LiveData | null> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      console.log("fetchTodayLiveData: no active user");
+      return null;
+    }
+
+    const todayStartIso = getTodayStartIsoInGmt8();
+
+    const [todayResult, latestResult] = await Promise.all([
+      supabase
+        .from("energy_readings_five_minutes")
+        .select("timestamp,production_kwh,consumption_kwh,production_kw,power_kw,energy_kwh,consumption_kw,load_kw,load_kwh,battery_level,grid_import_kwh,grid_export_kwh")
+        .eq("user_id", user.id)
+        .gte("timestamp", todayStartIso)
+        .order("timestamp", { ascending: true }),
+      supabase
+        .from("energy_readings_five_minutes")
+        .select("timestamp,production_kwh,production_kw,power_kw,battery_level,battery_status,battery_mode,capacity_kwp,station_name,plant_name")
+        .eq("user_id", user.id)
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     if (todayResult.error) {
-      console.log("fetchLiveData today query error:", todayResult.error.message);
+      console.log("fetchTodayLiveData today error:", todayResult.error.message);
       return null;
     }
     if (latestResult.error) {
-      console.log("fetchLiveData latest query error:", latestResult.error.message);
-      return null;
-    }
-    if (lifetimeFallbackResult.error) {
-      console.log(
-        "fetchLiveData lifetime query error:",
-        lifetimeFallbackResult.error.message,
-      );
+      console.log("fetchTodayLiveData latest error:", latestResult.error.message);
       return null;
     }
 
     const todayRows = todayResult.data ?? [];
     const latestRow = latestResult.data;
-    const fallbackRows = lifetimeFallbackResult.data ?? [];
 
     const todayProduction = todayRows.reduce(
       (sum, row) => sum + toNumber(row.production_kwh, row.energy_kwh),
@@ -194,14 +249,6 @@ export const fetchLiveData = async (): Promise<LiveData | null> => {
         row.battery_level != null ? Number(row.battery_level) : null,
     }));
 
-    const latestLifetimeProduction = latestRow
-      ? getLifetimeProductionFromLatest(latestRow)
-      : 0;
-    const fallbackLifetimeProduction = fallbackRows.reduce(
-      (sum, row) => sum + toNumber(row.production_kwh),
-      0,
-    );
-
     return {
       current_power_w: 0,
       today_production_kwh: todayProduction,
@@ -213,10 +260,8 @@ export const fetchLiveData = async (): Promise<LiveData | null> => {
       battery_status: firstString(latestRow?.battery_status, latestRow?.battery_mode),
       capacity_kwp: toNumber(latestRow?.capacity_kwp),
       station_name: firstString(latestRow?.station_name, latestRow?.plant_name) ?? "",
-      alltime_production_kwh:
-        latestLifetimeProduction > 0
-          ? latestLifetimeProduction
-          : fallbackLifetimeProduction,
+      alltime_production_kwh: 0,
+      lifetime_savings_php: undefined,
       month_production_kwh: 0,
       today_hourly: Array.from(hourlyBuckets.entries())
         .sort((a, b) => a[0] - b[0])
@@ -226,6 +271,32 @@ export const fetchLiveData = async (): Promise<LiveData | null> => {
           consumption_kwh: values.consumption_kwh,
         })),
       today_readings: todayReadings,
+    };
+  } catch (error) {
+    console.log("fetchTodayLiveData error:", error);
+    return null;
+  }
+};
+
+export const fetchLiveData = async (): Promise<LiveData | null> => {
+  try {
+    const [todayData, homeData] = await Promise.all([
+      fetchTodayLiveData(),
+      fetchHomeLiveData(),
+    ]);
+
+    if (!todayData) {
+      return null;
+    }
+
+    return {
+      ...todayData,
+      battery_level: homeData?.battery_level ?? todayData.battery_level,
+      battery_status: homeData?.battery_status ?? todayData.battery_status,
+      alltime_production_kwh:
+        homeData?.alltime_production_kwh ?? todayData.alltime_production_kwh,
+      lifetime_savings_php: homeData?.lifetime_savings_php,
+      month_production_kwh: 0,
     };
   } catch (error) {
     console.log("fetchLiveData error:", error);

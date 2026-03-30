@@ -22,7 +22,7 @@ import {
   formatDate,
   isPastDateInGmt8,
 } from "../services/dataService";
-import { fetchLiveData, fetchLifetimeSavingsPhp } from "../services/apiService";
+import { fetchHomeLiveData } from "../services/apiService";
 
 export default function HomeScreen({ navigation }: any) {
   const { width } = useWindowDimensions();
@@ -44,7 +44,6 @@ export default function HomeScreen({ navigation }: any) {
 
   const loadData = useCallback(async () => {
     try {
-      // Load fast Supabase data first so the UI renders quickly
       const [profile, weeklyData, payment, billing, referrals, tips] =
         await Promise.all([
           fetchUserProfile(),
@@ -80,7 +79,6 @@ export default function HomeScreen({ navigation }: any) {
         });
       }
 
-      // Build transactions from billing records
       if (billing) {
         const txs = billing.slice(0, 5).map((b: any) => ({
           id: b.id,
@@ -92,7 +90,6 @@ export default function HomeScreen({ navigation }: any) {
         setTransactions(txs);
       }
 
-      // Referral earnings
       if (referrals) {
         const earned = referrals
           .filter((r: any) => r.status === "installed" || r.status === "paid")
@@ -104,33 +101,24 @@ export default function HomeScreen({ navigation }: any) {
         setReferralEarnings(earned);
       }
 
-      // First unread energy tip
       if (tips && tips.length > 0) {
         const unread = tips.find((t: any) => !t.is_read);
         setEnergyTip(unread || tips[0]);
       }
 
-      // Show UI now, then load five-minute energy data in the background
       setLoading(false);
       setRefreshing(false);
 
-      // Load battery and lifetime savings without blocking the main screen render
-      const [liveData, lifetimeSavings] = await Promise.all([
-        fetchLiveData(),
-        fetchLifetimeSavingsPhp(),
-      ]);
-
+      const liveData = await fetchHomeLiveData();
       if (liveData) {
         setBatteryLevel(liveData.battery_level ?? 0);
         setBatteryStatus(liveData.battery_status || "idle");
-      }
-
-      setSolarEarnings(
-        lifetimeSavings > 0
-          ? Math.round(lifetimeSavings * 100) / 100
-          : Math.round((liveData?.alltime_production_kwh ?? 0) * PESO_PER_KWH * 100) /
+        setSolarEarnings(
+          liveData.lifetime_savings_php ??
+            Math.round((liveData.alltime_production_kwh ?? 0) * PESO_PER_KWH * 100) /
               100,
-      );
+        );
+      }
     } catch (err) {
       console.log("HomeScreen loadData error:", err);
       setLoading(false);
@@ -178,7 +166,6 @@ export default function HomeScreen({ navigation }: any) {
         />
       }
     >
-      {/* Header */}
       <View style={[styles.header, isWeb && styles.webHeader]}>
         <View>
           <Text style={styles.greeting}>
@@ -199,7 +186,6 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      {/* Total Earnings Card */}
       <View style={[styles.earningsCard, isWeb && styles.webHeroCard]}>
         <Text style={styles.earningsLabel}>Your Total Earnings</Text>
         <Text style={styles.earningsAmount}>{formatPeso(totalEarnings)}</Text>
@@ -219,45 +205,43 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/* This Week Summary */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>This Week</Text>
         <View style={[styles.weekCards, isWide && styles.weekCardsWide]}>
           <View style={[styles.statCard, { backgroundColor: "#E8F5E9" }]}>
-            <Text style={styles.statIcon}>☀️</Text>
+            <Text style={styles.statIcon}>â˜€ï¸</Text>
             <Text style={styles.statValue}>{weekProduction} kWh</Text>
             <Text style={styles.statLabel}>Production</Text>
           </View>
           {weekConsumption > 0 && (
             <View style={[styles.statCard, { backgroundColor: "#FFF3E0" }]}>
-              <Text style={styles.statIcon}>⚡</Text>
+              <Text style={styles.statIcon}>âš¡</Text>
               <Text style={styles.statValue}>{weekConsumption} kWh</Text>
               <Text style={styles.statLabel}>Consumption</Text>
             </View>
           )}
           <View style={[styles.statCard, { backgroundColor: "#E3F2FD" }]}>
-            <Text style={styles.statIcon}>💰</Text>
+            <Text style={styles.statIcon}>ðŸ’°</Text>
             <Text style={styles.statValue}>{formatPeso(weekSavings)}</Text>
             <Text style={styles.statLabel}>Savings</Text>
           </View>
         </View>
       </View>
 
-      {/* Battery Status — only show if battery data exists */}
       {batteryLevel > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Battery Status</Text>
           <View style={styles.batteryCard}>
             <View style={styles.batteryInfo}>
-              <Text style={styles.batteryIcon}>🔋</Text>
+              <Text style={styles.batteryIcon}>ðŸ”‹</Text>
               <View>
                 <Text style={styles.batteryLevel}>{batteryLevel}%</Text>
                 <Text style={styles.batteryStatus}>
                   {batteryStatus === "charging"
-                    ? "⚡ Charging"
+                    ? "âš¡ Charging"
                     : batteryStatus === "full"
-                      ? "✅ Full"
-                      : "🔌 Discharging"}
+                      ? "âœ… Full"
+                      : "ðŸ”Œ Discharging"}
                 </Text>
               </View>
             </View>
@@ -270,7 +254,6 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* Upcoming Payment */}
       {upcomingPayment && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upcoming Payment</Text>
@@ -293,7 +276,6 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* Recent Transactions */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Transactions</Text>
@@ -320,10 +302,9 @@ export default function HomeScreen({ navigation }: any) {
         ))}
       </View>
 
-      {/* Energy Tips */}
       {energyTip && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💡 Energy Tip</Text>
+          <Text style={styles.sectionTitle}>ðŸ’¡ Energy Tip</Text>
           <View style={styles.tipCard}>
             <Text style={styles.tipTitle}>{energyTip.title}</Text>
             <Text style={styles.tipDescription}>{energyTip.content}</Text>
