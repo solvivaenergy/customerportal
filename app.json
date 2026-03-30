@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Solviva",
+    "slug": "customerportal",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#C8E600",
+      "resizeMode": "contain",
+      "image": "./assets/splash-icon.png"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.solviva.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#C8E600"
+      },
+      "package": "com.solviva.app"
+    },
+    "updates": {
+      "enabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "SUPABASE_URL": "https://kzsocvzhbgtfyksrjmvk.supabase.co",
+      "SUPABASE_ANON_KEY": "dummy-key",
+      "eas": {
+        "projectId": "df73c3b9-b28c-42d8-907f-7899ad012ebb"
+      }
+    },
+    "plugins": [
+      "expo-asset"
+    ],
+    "owner": "solviva-energy"
+  }
+}
